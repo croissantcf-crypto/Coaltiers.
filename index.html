@@ -126,57 +126,75 @@
         /* Table Basics */
         table { width:100%; border-collapse: separate; border-spacing: 0 12px; }
         
+        /* Make each table row a positioned container so we can draw a single background for the whole row */
         tr {
+            position: relative; /* allow ::before/::after to fill the row */
             transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+            z-index: 0;
         }
 
-        /* Hover Animation for all rows */
+        /* Row background that spans all columns (continuous look) */
+        tr::before {
+            content: "";
+            position: absolute;
+            left: 0; right: 0; top: 0; bottom: 0;
+            background: var(--card);          /* default row background */
+            border-radius: 12px;             /* rounded corners for the whole row */
+            z-index: 0;                      /* sit behind the cell content */
+            transition: background 0.3s ease, box-shadow 0.3s ease, transform 0.3s cubic-bezier(.2,.9,.2,1);
+        }
+
+        /* Hover Animation for all rows (applies to the row and its pseudo background) */
         tr:hover {
             transform: scale(1.01) translateX(8px);
             z-index: 10;
         }
+        tr:hover::before {
+            background: #181818;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            transform: scale(1.01) translateX(8px);
+        }
 
+        /* Make cells transparent so row background shows through */
         td { 
             padding: 16px; 
-            background: var(--card); 
-            border-top: 1px solid #1e1e1e; 
-            border-bottom: 1px solid #1a1a1a; 
+            background: transparent;    /* <--- important for continuous row look */
+            border: none;               /* remove the cell borders that break continuity */
             position: relative;
-            overflow: hidden;
-            transition: background 0.3s ease, border-color 0.3s ease;
+            z-index: 2;                 /* keep cell contents above the row pseudo */
         }
 
-        tr:hover td {
-            border-color: rgba(0, 255, 136, 0.3);
-            background: #181818;
-        }
+        td:first-child { border-radius: 12px 0 0 12px; text-align:center; }
+        td:last-child { border-radius: 0 12px 12px 0; }
 
-        td:first-child { border-left: 1px solid #1e1e1e; border-radius: 12px 0 0 12px; text-align:center; }
-        td:last-child { border-right: 1px solid #1e1e1e; border-radius: 0 12px 12px 0; }
+        /* Allow different paddings per podium row (keeps your original look) */
+        .row-rank-1 td { padding: 24px 16px; }
+        .row-rank-2 td { padding: 20px 16px; }
+        .row-rank-3 td { padding: 18px 16px; }
 
         /* --- THE PODIUM STYLES (Continuous) --- */
-        .row-rank-1 td { background: linear-gradient(90deg, #1a1600 0%, #111 100%); padding: 24px 16px; }
-        .row-rank-2 td { background: linear-gradient(90deg, #1a1a1a 0%, #111 100%); padding: 20px 16px; }
-        .row-rank-3 td { background: linear-gradient(90deg, #1a120a 0%, #111 100%); padding: 18px 16px; }
+        .row-rank-1::before { background: linear-gradient(90deg, #1a1600 0%, #111 100%); }
+        .row-rank-2::before { background: linear-gradient(90deg, #1a1a1a 0%, #111 100%); }
+        .row-rank-3::before { background: linear-gradient(90deg, #1a120a 0%, #111 100%); }
 
         /* Podium Typography */
-        .row-rank-1 .rank-num { color: var(--gold); font-size: 1.5rem; font-weight: 900; }
-        .row-rank-1 .player-name { color: var(--gold); font-size: 1.4rem; text-shadow: 0 0 15px rgba(255,204,0,0.3); }
+        .row-rank-1 .rank-num { color: var(--gold); font-size: 1.5rem; font-weight: 900; position: relative; z-index: 2; }
+        .row-rank-1 .player-name { color: var(--gold); font-size: 1.4rem; text-shadow: 0 0 15px rgba(255,204,0,0.3); position: relative; z-index: 2; }
 
-        .row-rank-2 .rank-num { color: var(--silver); font-size: 1.3rem; }
-        .row-rank-2 .player-name { color: var(--silver); font-size: 1.2rem; }
+        .row-rank-2 .rank-num { color: var(--silver); font-size: 1.3rem; position: relative; z-index: 2; }
+        .row-rank-2 .player-name { color: var(--silver); font-size: 1.2rem; position: relative; z-index: 2; }
 
-        .row-rank-3 .rank-num { color: var(--bronze); font-size: 1.2rem; }
-        .row-rank-3 .player-name { color: var(--bronze); font-size: 1.1rem; }
+        .row-rank-3 .rank-num { color: var(--bronze); font-size: 1.2rem; position: relative; z-index: 2; }
+        .row-rank-3 .player-name { color: var(--bronze); font-size: 1.1rem; position: relative; z-index: 2; }
 
-        /* --- THE GLINT ANIMATION --- */
+        /* --- THE GLINT ANIMATION (moved to rows for continuous glint) --- */
         @keyframes glint {
             0% { transform: translateX(-150%) skewX(-25deg); }
             20% { transform: translateX(250%) skewX(-25deg); }
             100% { transform: translateX(250%) skewX(-25deg); }
         }
 
-        .row-rank-1 td::after, .row-rank-2 td::after, .row-rank-3 td::after {
+        .row-rank-1::after, .row-rank-2::after, .row-rank-3::after {
             content: "";
             position: absolute;
             top: 0; left: 0;
@@ -189,9 +207,10 @@
             );
             animation: glint 5s infinite ease-in-out;
             pointer-events: none;
+            z-index: 1; /* above the row background but below the cell content */
         }
-        .row-rank-2 td::after { animation-delay: 0.3s; }
-        .row-rank-3 td::after { animation-delay: 0.6s; }
+        .row-rank-2::after { animation-delay: 0.3s; }
+        .row-rank-3::after { animation-delay: 0.6s; }
 
         /* Badges & Text */
         .tier-badge {
@@ -204,6 +223,8 @@
             border: 1px solid rgba(255,255,255,0.06);
             min-width: 40px;
             text-align:center;
+            position: relative;
+            z-index: 2;
         }
         .tier-badge.retired { opacity: 0.4; text-decoration: line-through; }
         .retired-tag { font-size: 0.6rem; color: #ff4444; margin-left: 4px; font-style: italic; }
@@ -213,7 +234,7 @@
         .t-3 { border-color: var(--t3); color: var(--t3); }
         .t-4 { border-color: var(--t4); color: var(--t4); }
         .t-5 { border-color: var(--t5); color: var(--t5); }
-        .points { color: var(--accent); font-weight: 900; }
+        .points { color: var(--accent); font-weight: 900; position: relative; z-index: 2; }
 
         /* Category Bar */
         .category-bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:25px; }
