@@ -125,35 +125,47 @@
 
         /* Table Basics */
         table { width:100%; border-collapse: separate; border-spacing: 0 12px; }
+        
+        tr {
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
+        }
+
+        /* Hover Animation for all rows */
+        tr:hover {
+            transform: scale(1.01) translateX(8px);
+            z-index: 10;
+        }
+
         td { 
             padding: 16px; 
             background: var(--card); 
             border-top: 1px solid #1e1e1e; 
             border-bottom: 1px solid #1a1a1a; 
             position: relative;
-            overflow: hidden; /* Important for the glint */
+            overflow: hidden;
+            transition: background 0.3s ease, border-color 0.3s ease;
         }
+
+        tr:hover td {
+            border-color: rgba(0, 255, 136, 0.3);
+            background: #181818;
+        }
+
         td:first-child { border-left: 1px solid #1e1e1e; border-radius: 12px 0 0 12px; text-align:center; }
         td:last-child { border-right: 1px solid #1e1e1e; border-radius: 0 12px 12px 0; }
 
-        /* --- THE PODIUM STYLES --- */
-        .row-rank-1 td, .row-rank-2 td, .row-rank-3 td {
-            border-top: 2px solid rgba(255,255,255,0.05);
-            border-bottom: 2px solid rgba(0,0,0,0.2);
-        }
+        /* --- THE PODIUM STYLES (Continuous) --- */
+        .row-rank-1 td { background: linear-gradient(90deg, #1a1600 0%, #111 100%); padding: 24px 16px; }
+        .row-rank-2 td { background: linear-gradient(90deg, #1a1a1a 0%, #111 100%); padding: 20px 16px; }
+        .row-rank-3 td { background: linear-gradient(90deg, #1a120a 0%, #111 100%); padding: 18px 16px; }
 
-        /* Rank 1 (Gold) */
-        .row-rank-1 td { padding: 24px 16px; background: linear-gradient(90deg, #1a1600 0%, #111 100%); }
+        /* Podium Typography */
         .row-rank-1 .rank-num { color: var(--gold); font-size: 1.5rem; font-weight: 900; }
         .row-rank-1 .player-name { color: var(--gold); font-size: 1.4rem; text-shadow: 0 0 15px rgba(255,204,0,0.3); }
 
-        /* Rank 2 (Silver) */
-        .row-rank-2 td { padding: 20px 16px; background: linear-gradient(90deg, #161616 0%, #111 100%); }
         .row-rank-2 .rank-num { color: var(--silver); font-size: 1.3rem; }
         .row-rank-2 .player-name { color: var(--silver); font-size: 1.2rem; }
 
-        /* Rank 3 (Bronze) */
-        .row-rank-3 td { padding: 18px 16px; background: linear-gradient(90deg, #16100a 0%, #111 100%); }
         .row-rank-3 .rank-num { color: var(--bronze); font-size: 1.2rem; }
         .row-rank-3 .player-name { color: var(--bronze); font-size: 1.1rem; }
 
@@ -172,15 +184,14 @@
             background: linear-gradient(
                 to right,
                 rgba(255, 255, 255, 0) 0%,
-                rgba(255, 255, 255, 0.13) 50%,
+                rgba(255, 255, 255, 0.15) 50%,
                 rgba(255, 255, 255, 0) 100%
             );
-            animation: glint 4s infinite ease-in-out;
+            animation: glint 5s infinite ease-in-out;
             pointer-events: none;
         }
-        /* Stagger the glint slightly for a natural feel */
-        .row-rank-2 td::after { animation-delay: 0.2s; background: rgba(255,255,255,0.08); }
-        .row-rank-3 td::after { animation-delay: 0.4s; background: rgba(255,255,255,0.05); }
+        .row-rank-2 td::after { animation-delay: 0.3s; }
+        .row-rank-3 td::after { animation-delay: 0.6s; }
 
         /* Badges & Text */
         .tier-badge {
@@ -215,8 +226,9 @@
             cursor: pointer;
             font-size: 0.75rem;
             font-weight: 600;
+            transition: all 0.2s;
         }
-        .cat-btn.active { background: #2b2b2b; color: #fff; border-color: #ff6b6b; }
+        .cat-btn.active { background: #2b2b2b; color: #fff; border-color: #ff6b6b; box-shadow: 0 0 10px rgba(255, 107, 107, 0.2); }
 
         /* Modal */
         #playerModal {
