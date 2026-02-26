@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>CoalTiers | PvP Leaderboard</title>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+
+        :root {
+            --bg: linear-gradient(180deg, #050507 0%, #07121a 50%, #040406 100%);
+            --card: #111111;
+            --accent: #00ff88;
+            --text: #ffffff;
+            --sidebar-width: 340px;
+
+            /* Podium Colors */
+            --gold: #ffcc00;
+            --silver: #e0e0e0;
+            --bronze: #cd7f32;
+            
+            --t1: var(--gold);
+            --t2: #ff4444;
+            --t3: #bb86fc;
+            --t4: #3498db;
+            --t5: #95a5a6;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: rgba(14, 14, 14, 0.92);
+            height: 100vh;
+            position: fixed;
+            left: 0; top: 0;
+            border-right: 1px solid #1e1e1e;
+            padding: 30px;
+            box-sizing: border-box;
+            overflow-y: auto;
+            z-index: 100;
+            backdrop-filter: blur(6px);
+            transform: translateX(0);
+            transition: transform 240ms cubic-bezier(.2,.9,.2,1);
+        }
+
+        .sidebar.collapsed { transform: translateX(calc(-1 * (var(--sidebar-width) - 48px))); }
+        .sidebar.collapsed:hover { transform: translateX(0); }
+
+        .sidebar-toggle {
+            position: absolute;
+            right: -48px; top: 18px;
+            width: 44px; height: 44px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            background: rgba(20,20,20,0.95);
+            border: 1px solid rgba(255,255,255,0.04);
+            z-index: 200;
+        }
+
+        .hamburger { width: 18px; height: 14px; position: relative; }
+        .hamburger span { position: absolute; left: 0; right: 0; height: 2px; background: #cfcfcf; border-radius: 2px; }
+        .hamburger span:nth-child(1) { top: 0; }
+        .hamburger span:nth-child(2) { top: 6px; }
+        .hamburger span:nth-child(3) { top: 12px; }
+
+        .logo {
+            display: block;
+            font-size: 2.2rem;
+            font-weight: 900;
+            letter-spacing: -2px;
+            margin-bottom: 28px;
+            text-align: center;
+            text-decoration: none;
+            color: inherit;
+        }
+        .logo .coal { color: #7a7a7a; }
+        .logo .tiers { color: #ff6b6b; }
+
+        .admin-box { margin-top: 10px; border-top: 1px solid #222; padding-top: 20px; }
+        .admin-row { 
+            display: grid; 
+            grid-template-columns: 80px 1fr 40px; 
+            align-items: center; 
+            gap: 10px; 
+            margin-bottom: 8px; 
+        }
+        .admin-row label { font-size: 0.65rem; color: #8a8a8a; font-weight: 700; text-transform: uppercase; }
+
+        select, input[type="text"], input[type="password"] {
+            padding: 8px;
+            background: #141414;
+            border: 1px solid #252525;
+            color: white;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            width: 100%;
+            outline: none;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            padding: 40px;
+            flex-grow: 1;
+            max-width: calc(100vw - var(--sidebar-width));
+            box-sizing: border-box;
+            transition: margin-left 240ms;
+        }
+        body.sidebar-collapsed .main-content { margin-left: 48px; max-width: calc(100vw - 48px); }
+
+        /* Table Basics */
+        table { width:100%; border-collapse: separate; border-spacing: 0 12px; }
+        td { 
+            padding: 16px; 
+            background: var(--card); 
+            border-top: 1px solid #1e1e1e; 
+            border-bottom: 1px solid #1a1a1a; 
+            position: relative;
+            overflow: hidden; /* Important for the glint */
+        }
+        td:first-child { border-left: 1px solid #1e1e1e; border-radius: 12px 0 0 12px; text-align:center; }
+        td:last-child { border-right: 1px solid #1e1e1e; border-radius: 0 12px 12px 0; }
+
+        /* --- THE PODIUM STYLES --- */
+        .row-rank-1 td, .row-rank-2 td, .row-rank-3 td {
+            border-top: 2px solid rgba(255,255,255,0.05);
+            border-bottom: 2px solid rgba(0,0,0,0.2);
+        }
+
+        /* Rank 1 (Gold) */
+        .row-rank-1 td { padding: 24px 16px; background: linear-gradient(90deg, #1a1600 0%, #111 100%); }
+        .row-rank-1 .rank-num { color: var(--gold); font-size: 1.5rem; font-weight: 900; }
+        .row-rank-1 .player-name { color: var(--gold); font-size: 1.4rem; text-shadow: 0 0 15px rgba(255,204,0,0.3); }
+
+        /* Rank 2 (Silver) */
+        .row-rank-2 td { padding: 20px 16px; background: linear-gradient(90deg, #161616 0%, #111 100%); }
+        .row-rank-2 .rank-num { color: var(--silver); font-size: 1.3rem; }
+        .row-rank-2 .player-name { color: var(--silver); font-size: 1.2rem; }
+
+        /* Rank 3 (Bronze) */
+        .row-rank-3 td { padding: 18px 16px; background: linear-gradient(90deg, #16100a 0%, #111 100%); }
+        .row-rank-3 .rank-num { color: var(--bronze); font-size: 1.2rem; }
+        .row-rank-3 .player-name { color: var(--bronze); font-size: 1.1rem; }
+
+        /* --- THE GLINT ANIMATION --- */
+        @keyframes glint {
+            0% { transform: translateX(-150%) skewX(-25deg); }
+            20% { transform: translateX(250%) skewX(-25deg); }
+            100% { transform: translateX(250%) skewX(-25deg); }
+        }
+
+        .row-rank-1 td::after, .row-rank-2 td::after, .row-rank-3 td::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0;
+            width: 40%; height: 100%;
+            background: linear-gradient(
+                to right,
+                rgba(255, 255, 255, 0) 0%,
+                rgba(255, 255, 255, 0.13) 50%,
+                rgba(255, 255, 255, 0) 100%
+            );
+            animation: glint 4s infinite ease-in-out;
+            pointer-events: none;
+        }
+        /* Stagger the glint slightly for a natural feel */
+        .row-rank-2 td::after { animation-delay: 0.2s; background: rgba(255,255,255,0.08); }
+        .row-rank-3 td::after { animation-delay: 0.4s; background: rgba(255,255,255,0.05); }
+
+        /* Badges & Text */
+        .tier-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            min-width: 40px;
+            text-align:center;
+        }
+        .tier-badge.retired { opacity: 0.4; text-decoration: line-through; }
+        .retired-tag { font-size: 0.6rem; color: #ff4444; margin-left: 4px; font-style: italic; }
+
+        .t-1 { border-color: var(--gold); color: var(--gold); }
+        .t-2 { border-color: var(--t2); color: var(--t2); }
+        .t-3 { border-color: var(--t3); color: var(--t3); }
+        .t-4 { border-color: var(--t4); color: var(--t4); }
+        .t-5 { border-color: var(--t5); color: var(--t5); }
+        .points { color: var(--accent); font-weight: 900; }
+
+        /* Category Bar */
+        .category-bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:25px; }
+        .cat-btn {
+            padding: 6px 14px;
+            background: rgba(22,22,22,0.9);
+            border: 1px solid #202020;
+            color: #bdbdbd;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .cat-btn.active { background: #2b2b2b; color: #fff; border-color: #ff6b6b; }
+
+        /* Modal */
+        #playerModal {
+            display: none;
+            position: fixed;
+            top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.9);
+            z-index:300;
+            justify-content:center;
+            align-items:center;
+            backdrop-filter: blur(8px);
+        }
+        .modal-content {
+            background: #0a0a0a;
+            padding: 40px;
+            border-radius: 20px;
+            border: 1px solid #222;
+            width: 90%; max-width: 400px;
+            text-align:center;
+        }
+    </style>
+</head>
+<body class="sidebar-collapsed">
+    <aside class="sidebar collapsed" id="sidebar">
+        <button class="sidebar-toggle" id="sidebarToggle">
+            <span class="hamburger"><span></span><span></span><span></span></span>
+        </button>
+
+        <a class="logo" href="https://discord.gg/AWAqSUGMzF" target="_blank">
+            <span class="coal">COAL</span><span class="tiers">TIERS</span>
+        </a>
+
+        <div class="admin-box">
+            <input type="password" id="adminPin" placeholder="Admin PIN" style="margin-bottom: 10px;">
+            <input type="text" id="playerName" placeholder="Player Username" style="margin-bottom: 15px;">
+            <div id="adminGrid"></div>
+            <button onclick="savePlayer()" style="background: var(--accent); color: #000; padding: 14px; border: none; border-radius: 6px; font-weight: 900; cursor: pointer; width: 100%; margin-top: 15px;">SAVE CHANGES</button>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="category-bar" id="categoryBar">
+            <button class="cat-btn active" id="btn-Global" onclick="switchCategory('Global')">OVERALL</button>
+        </div>
+        <input type="text" id="searchBar" placeholder="🔍 Search player..." style="width:100%; padding:15px; background:#111; border:1px solid #222; border-radius:10px; color:white; margin-bottom:25px;" onkeyup="filterTable()">
+        <div id="viewContainer"></div>
+    </main>
+
+    <div id="playerModal">
+        <div class="modal-content">
+            <h2 id="modalPlayerName" style="color: var(--accent); margin: 0;"></h2>
+            <p id="modalTotalScore" style="color: #666; font-weight:bold;"></p>
+            <div id="modalKitList" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 25px; text-align: left;"></div>
+            <button onclick="closeModal()" style="margin-top:20px; background: #222; color: #fff; padding: 8px 20px; border:none; border-radius:5px; cursor:pointer;">Close</button>
+        </div>
+    </div>
+
+    <script>
+        const MY_SECRET_PIN = "5465";
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnMw3S4hgHmVia5hJkt2x3TqnZBw-pulk",
+            authDomain: "coaltiers.firebaseapp.com",
+            databaseURL: "https://coaltiers-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "coaltiers",
+            storageBucket: "coaltiers.firebasestorage.app",
+            messagingSenderId: "870348706513",
+            appId: "1:870348706513:web:dca6e662774a4ede8f6bf0"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const KITS = ["SMP", "UHC", "DIASMP", "DIAPOT", "CART", "SPEARMACE", "MACE", "AXE", "SWORD", "CRYSTAL"];
+        const TIER_ORDER = ["HT1", "LT1", "HT2", "LT2", "HT3", "LT3", "HT4", "LT4", "HT5", "LT5"];
+        const TIER_POINTS = { "None": 0, "LT5": 1, "HT5": 2, "LT4": 3, "HT4": 6, "LT3": 10, "HT3": 15, "LT2": 20, "HT2": 30, "LT1": 40, "HT1": 60 };
+
+        let currentCategory = "Global";
+        let globalPlayerData = {};
+
+        function getTierClass(tier) {
+            if (!tier || tier === "None") return "";
+            if (tier.includes("1")) return "t-1";
+            if (tier.includes("2")) return "t-2";
+            if (tier.includes("3")) return "t-3";
+            if (tier.includes("4")) return "t-4";
+            if (tier.includes("5")) return "t-5";
+            return "";
+        }
+
+        const sidebar = document.getElementById('sidebar');
+        document.getElementById('sidebarToggle').addEventListener('click', () => {
+            const isCol = sidebar.classList.toggle('collapsed');
+            document.body.classList.toggle('sidebar-collapsed', isCol);
+        });
+
+        function init() {
+            const adminGrid = document.getElementById('adminGrid');
+            const catBar = document.getElementById('categoryBar');
+            KITS.forEach(kit => {
+                adminGrid.innerHTML += `
+                    <div class="admin-row">
+                        <label>${kit}</label>
+                        <select id="kit-${kit}">${Object.keys(TIER_POINTS).map(t => `<option value="${t}">${t}</option>`).join('')}</select>
+                        <input type="checkbox" id="ret-${kit}">
+                    </div>`;
+                catBar.innerHTML += `<button class="cat-btn" id="btn-${kit}" onclick="switchCategory('${kit}')">${kit}</button>`;
+            });
+            db.ref('players').on('value', (snapshot) => {
+                globalPlayerData = snapshot.val() || {};
+                renderView();
+            });
+        }
+
+        function switchCategory(cat) {
+            currentCategory = cat;
+            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${cat}`).classList.add('active');
+            renderView();
+        }
+
+        function renderView() {
+            const container = document.getElementById('viewContainer');
+            container.innerHTML = "";
+            if (currentCategory === "Global") renderGlobalTable(container);
+            else renderKitGroups(container, currentCategory);
+        }
+
+        function renderGlobalTable(container) {
+            let html = `<table><thead><tr><th>#</th><th>Player</th>`;
+            KITS.forEach(k => html += `<th>${k}</th>`);
+            html += `<th>Points</th></tr></thead><tbody>`;
+
+            const sorted = Object.values(globalPlayerData).sort((a,b) => b.score - a.score);
+            sorted.forEach((p, i) => {
+                let rankNum = i + 1;
+                let rowClass = (rankNum === 1) ? "row-rank-1" : (rankNum === 2) ? "row-rank-2" : (rankNum === 3) ? "row-rank-3" : "";
+                
+                html += `<tr class="${rowClass}">
+                    <td class="rank-num">${rankNum}</td>
+                    <td><span class="player-name" onclick="openModal('${p.name}')" style="cursor:pointer; font-weight:700;">${p.name}</span></td>`;
+                KITS.forEach(k => {
+                    const t = (p.tiers && p.tiers[k]) || 'None';
+                    const isRet = p.retired && p.retired[k];
+                    html += `<td>
+                        <span class="tier-badge ${getTierClass(t)} ${isRet ? 'retired' : ''}">
+                            ${t}${isRet ? '<span class="retired-tag">(R)</span>' : ''}
+                        </span>
+                    </td>`;
+                });
+                html += `<td class="points">${p.score}</td></tr>`;
+            });
+            container.innerHTML = html + `</tbody></table>`;
+        }
+
+        function renderKitGroups(container, kitName) {
+            TIER_ORDER.forEach(tier => {
+                const playersInTier = Object.values(globalPlayerData).filter(p => p.tiers && p.tiers[kitName] === tier);
+                if (playersInTier.length > 0) {
+                    let groupHtml = `<div style="margin-bottom:30px;">
+                        <h3 class="${getTierClass(tier)}" style="border-bottom:1px solid #222; padding-bottom:10px;">${tier}</h3>
+                        <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap:10px;">`;
+                    playersInTier.forEach(p => {
+                        const isRet = p.retired && p.retired[kitName];
+                        groupHtml += `<div class="player-card" onclick="openModal('${p.name}')" style="background:#111; padding:15px; border-radius:8px; border:1px solid #222; cursor:pointer; opacity:${isRet ? 0.6 : 1}">
+                            <div style="font-weight:700; ${isRet ? 'text-decoration:line-through' : ''}">${p.name}</div>
+                            <div style="font-size:0.7rem; color:#444;">Global: ${p.score} pts</div>
+                        </div>`;
+                    });
+                    container.innerHTML += groupHtml + `</div></div>`;
+                }
+            });
+        }
+
+        function savePlayer() {
+            const pin = document.getElementById('adminPin').value;
+            if (pin !== MY_SECRET_PIN) return alert("Wrong PIN");
+            const name = document.getElementById('playerName').value.trim();
+            if(!name) return;
+            let tiers = {}; let retired = {}; let score = 0;
+            KITS.forEach(k => {
+                const val = document.getElementById(`kit-${k}`).value;
+                const isRet = document.getElementById(`ret-${k}`).checked;
+                tiers[k] = val; retired[k] = isRet; score += TIER_POINTS[val];
+            });
+            db.ref('players/' + name).set({ name, tiers, retired, score });
+            document.getElementById('playerName').value = "";
+            KITS.forEach(k => document.getElementById(`ret-${k}`).checked = false);
+        }
+
+        function openModal(name) {
+            const p = globalPlayerData[name];
+            if (!p) return;
+            document.getElementById('modalPlayerName').innerText = p.name;
+            document.getElementById('modalTotalScore').innerText = `${p.score} POINTS`;
+            const list = document.getElementById('modalKitList');
+            list.innerHTML = "";
+            KITS.forEach(k => {
+                const t = (p.tiers && p.tiers[k]) || 'None';
+                const isRet = p.retired && p.retired[k];
+                list.innerHTML += `<div style="background:#181818; padding:10px; border-radius:5px; border-left:3px solid var(--accent); opacity:${isRet ? 0.5 : 1}">
+                    <small style="color:#555">${k}</small><br>
+                    <b class="${getTierClass(t)}" style="${isRet ? 'text-decoration:line-through' : ''}">${t}</b>
+                </div>`;
+            });
+            document.getElementById('playerModal').style.display = "flex";
+        }
+
+        function closeModal() { document.getElementById('playerModal').style.display = "none"; }
+        function filterTable() {
+            const q = document.getElementById('searchBar').value.toLowerCase();
+            document.querySelectorAll('tr, .player-card').forEach(el => {
+                if(!el.querySelector('th')) el.style.display = el.innerText.toLowerCase().includes(q) ? "" : "none";
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>
